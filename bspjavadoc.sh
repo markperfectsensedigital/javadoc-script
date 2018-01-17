@@ -68,7 +68,6 @@ function make_sourcepath () {
 	#FILENAME=`echo $line | sed -E 's/^(.*\/).*/\1/'`
 	FILENAME=`echo $line | sed -E 's/^(.*src\/.*\/java).*$/\1/'`
 #	echo "FILENAME=$FILENAME"
-	#if [[ $FILENAME != *$MYSOURCEPATH* ]]; then
 	if [[ $MYSOURCEPATH != *$FILENAME* ]]; then
 	  MYSOURCEPATH+=$FILENAME":"
    fi
@@ -83,10 +82,40 @@ function make_sourcepath () {
 }
 
 
-HELPMESSAGE="\nUsage: bspjavadoc [-d /output/dir] [-m /repo/dir] Class.java\n       bspjavadoc [-d /output/dir] [-m /repo/dir] [-s /source/base/dir] packagename\n       bspjavadoc [-d /output/dir] [-r dari|bsp]\n       bspjavadoc -h\n\n"
+function make_packagelist () {
+  printf "Assembling PACKAGELIST..."
+  TEMPFILEPACKAGE=`mktemp -u`
+  find $1 -name "*\.java" > $TEMPFILEPACKAGE
+
+  MYPACKAGELIST="";
+  while read -r line || [[ -n "$line" ]]; do
+   #echo $line
+	PACKAGENAMESLASHES=`echo $line | sed -E 's/^.*src\/.*\/java\/(.*)\/.*\.java$/\1/'`
+   
+   # The following test ensures we do not add package names that the previous
+   # sed did not process, in which case it returns the original line from the list of
+   # all java files. Each of those lines starts with the user's $HOME string. If
+   # the current line includes the $HOME string, then continue the loop.
+	if [[ $PACKAGENAMESLASHES == *$HOME* ]]; then
+      continue
+   fi
+   #echo $PACKAGENAMESLASHES
+   PACKAGENAME=`echo $PACKAGENAMESLASHES | sed -E 's/\//./g'`
+#	echo "FILENAME=$FILENAME"
+
+	if [[ $MYPACKAGELIST != *$PACKAGENAME* ]]; then
+	  MYPACKAGELIST+=$PACKAGENAME" "
+   fi
+  done < $TEMPFILEPACKAGE
+ #Remove trailing space from the cumulative MYPACKAGELIST string
+  PACKAGELIST=`echo $MYPACKAGELIST | sed -E 's/ $//'`
+  # echo $PACKAGELIST
+  printf "finished\n"
+}
+
+HELPMESSAGE="\nUsage: bspjavadoc [-d /output/dir] [-m /repo/dir] Class.java\n       bspjavadoc [-d /output/dir] [-m /repo/dir] [-s /source/base/dir] packagenames|all\n       bspjavadoc -h\n\n"
 
 if [ "$#" -lt 1 ]; then
-
   echo -e "$HELPMESSAGE"
   exit
 fi
@@ -97,7 +126,7 @@ BASESOURCEPATH=.
 BUILDTYPE=class
 REPONAME=dari
 
-while getopts "hm:d:r:s:" opt; do
+while getopts "hm:d:s:" opt; do
   case $opt in 
     m)
       echo "Found here"
@@ -113,9 +142,6 @@ while getopts "hm:d:r:s:" opt; do
     s)
       BASESOURCEPATH=$OPTARG
       ;;
-    r)
-      REPONAME=$OPTARG
-      ;;
     \?)
       echo -e "$HELPMESSAGE"
       exit
@@ -126,8 +152,6 @@ done
 
 shift $((OPTIND-1))
 
-make_classpath
-
 # When getopts is over the remaining parameter @ is either a single class file or a list of packages
 
 # Java conventions specify that package names are all lower case. We test the passed
@@ -136,32 +160,25 @@ make_classpath
 # a list of packages
 
 
+make_classpath
 
-if [ -z "$@" ]; then
-  BUILDTYPE=repo
-elif [[ $@ =~ [A-Z] ]]; then
+
+if [[ $@ =~ [A-Z] ]]; then
   BUILDTYPE=class
 else
   BUILDTYPE=package
 fi
 
+# If passed all as the final parameter, then we want to build the entire
+# documentation set for all packages.
+if [ $@ == "all" ]; then
+  make_packagelist $BASESOURCEPATH
+else
+  PACKAGELIST=$@
+fi
+
 
 case $BUILDTYPE in
-  repo)
-    echo "Building javadocs for a repo"
-    make_sourcepath $BASESOURCEPATH
-	 if [ "$REPONAME" == "dari" ]; then 
-      TARGET="com.psddev.dari.util com.psddev.dari.aws com.psddev.dari.db com.psddev.dari.elasticsearch com.psddev.dari.h2 com.psddev.dari.mysql com.psddev.dari.sql com.psddev.dari.db.shyiko com.psddev.dari.util.sa"
-#      SOURCEPATH=/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/util/src/main/java/:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/aws/src/main/java/:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/db/src/main/java:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/elasticsearch/src/main/java:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/h2/src/main/java:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/mysql/src/main/java:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/sql/src/main/java:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/db/target/classes/com/psddev/dari/db/shyiko:/Users/mlautman/Documents/javadocs/content-edit-widget/brightspot/dari/util/src/main/java/com/psddev/dari/util/sa
-      WINDOWTITLE="Dari API"
-      DOCTITLE="Dari API"
-    else 
-      TARGET="com.psddev.cms.db com.psddev.cms.hunspell com.psddev.cms.nlp com.psddev.cms.rtc com.psddev.cms.rte com.psddev.cms.tool com.psddev.cms.tool.file com.psddev.cms.tool.page com.psddev.cms.tool.page.content com.psddev.cms.tool.page.content.edit com.psddev.cms.tool.page.content.field com.psddev.cms.tool.page.user com.psddev.cms.tool.search com.psddev.cms.tool.view com.psddev.cms.tool.widget com.psddev.cms.view com.psddev.cms.view.servlet"
-      #SOURCEPATH=/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/:/Users/mlautman/Documents/javadocs/brightspot/cms/hunspell/src/main/java/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/nlp/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/rtc/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/rte/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/file/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/page/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/page/content/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/page/content/edit/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/page/content/field/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/page/user/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/search/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/view/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/tool/widget/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/view/:/Users/mlautman/Documents/javadocs/brightspot/cms/db/src/main/java/com/psddev/cms/view/servlet/
-      WINDOWTITLE="Brightspot API"
-      DOCTITLE="Brightspot API"
-    fi
-    ;;
   class)
     echo "Building javadocs for a class"
     WINDOWTITLE=$(echo `basename $@`)
@@ -169,11 +186,11 @@ case $BUILDTYPE in
     TARGET=$@
     ;;
   package)
-    echo "Building javadocs for a package"
+    echo "Building javadocs for one or more packages"
     make_sourcepath $BASESOURCEPATH
     WINDOWTITLE=$@
     DOCTITLE=$@
-    TARGET=$@
+    TARGET=$PACKAGELIST
     ;;
 esac
 
