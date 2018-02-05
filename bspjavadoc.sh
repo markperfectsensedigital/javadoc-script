@@ -113,7 +113,7 @@ function make_packagelist () {
   printf "finished\n"
 }
 
-HELPMESSAGE="\nUsage: bspjavadoc [-d /output/dir] [-m /repo/dir] Class.java\n       bspjavadoc [-d /output/dir] [-m /repo/dir] [-s /source/base/dir] packagenames|all\n       bspjavadoc -h\n\n"
+HELPMESSAGE="\nUsage: bspjavadoc [-d /output/dir] [-m /repo/dir] Class.java\n       bspjavadoc [-d /output/dir] [-m /repo/dir] [-s /source/base/dir] packagenames|all\n       bspjavadoc -h\n\nExamples: bspjavadoc cms/db/src/main/java/com/psddev/cms/db/ToolUi.java\n          bspjavadoc -s /path/to/bsp-install-root com.psddev.cms.db\n          bspjavadoc -s /path/to/bsp-install-root all\n"
 
 if [ "$#" -lt 1 ]; then
   echo -e "$HELPMESSAGE"
@@ -141,6 +141,9 @@ while getopts "hm:d:s:" opt; do
       ;;
     s)
       BASESOURCEPATH=$OPTARG
+      if [ $BASESOURCEPATH == "." ]; then
+        BASESOURCEPATH=$PWD
+      fi
       ;;
     \?)
       echo -e "$HELPMESSAGE"
@@ -159,8 +162,14 @@ shift $((OPTIND-1))
 # we received a class file (Something.java). Otherwise, assume that we received
 # a list of packages
 
+#echo "The BASESOURCEPATH is $BASESOURCEPATH"
 
 make_classpath
+
+#echo "The classpath is..."
+#echo $CLASSPATH
+#exit
+
 
 
 if [[ $@ =~ [A-Z] ]]; then
@@ -197,6 +206,7 @@ esac
 #echo "The target is $TARGET"
 #echo "The windowtitle is $WINDOWTITLE"
 #echo "The doctitle is $DOCTITLE"
+#echo "The sourcepath is $SOURCEPATH"
 #exit
 
 javadoc -d $OUTPUTDIRECTORY -sourcepath $SOURCEPATH -protected -charset "UTF-8" -classpath $CLASSPATH -link https://docs.oracle.com/javase/8/docs/api/ -link https://commons.apache.org/proper/commons-lang/javadocs/api-3.6/ -link https://commons.apache.org/proper/commons-lang/javadocs/api-2.6/ -Xdoclint:all -bottom 'Copyright &#169; 2017 Perfect Sense. All rights reserved.' -doctitle "$DOCTITLE" -windowtitle "$WINDOWTITLE" $TARGET
